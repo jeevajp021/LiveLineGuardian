@@ -14,7 +14,7 @@ import sys
 ROOT_DIR = pathlib.Path(__file__).resolve().parents[1]  # only go up ONE level
 sys.path.append(str(ROOT_DIR))
 BASE_DIR = ROOT_DIR
-MODEL_PATH = ROOT_DIR / "artifacts" / "riskanalysis_model.pkl"
+MODEL_PATH = ROOT_DIR / "artifacts"
 
 from src.models.predict import load_model_and_features, get_risk_score, classify_risk  
 
@@ -115,6 +115,10 @@ VALID_TRANSITIONS = {
     "MAINTENANCE (LOCKED)": ["ISOLATED"]
 }
 
+# --- HIGH RISK STREAK TRACKING ---
+if 'high_streak' not in st.session_state:
+    st.session_state.high_streak = 0
+    
 def can_transition(asset_id, new_state):
     current = st.session_state.loto_state[asset_id]['status']
     return new_state in VALID_TRANSITIONS.get(current, [])
@@ -136,7 +140,7 @@ def mark_user_action():
 
 def generate_dynamic_sensor_data(asset_id):
     """Generates slightly randomized sensor and context data. A118 is set to be high risk."""
-    is_high_risk = (asset_id == 'A118')
+    is_high_risk = random.random() < 0.35 if asset_id == "A118" else random.random() < 0.10
     
     # Base values use high-risk characteristics (low experience, high work hours, poor asset health)
     base_data = {
@@ -273,6 +277,8 @@ except Exception as e:
 
 st.title("🛡️ LiveLine Guardian: Control Room Dashboard")
 
+
+
 # Asset Selector
 selected_asset = st.selectbox("Select Asset ID", list(st.session_state.loto_state.keys()))
 if 'last_asset' not in st.session_state:
@@ -284,27 +290,44 @@ if st.session_state.last_asset != selected_asset:
 
 state = st.session_state.loto_state[selected_asset]
 
+
+
+# ================= RISK PREDICTION CONTROL =================
+
+manual_trigger = st.button("Run Predictive Risk Analysis")
+
+# --- Stable UI placeholders (prevents jumping) ---
+risk_info_container = st.container()
+shap_container = st.container()
+sensor_container = st.container()
+
+should_run = False
+input_data_raw = None  # prevent undefined variable errors
+input_data = None
+new_score = None
+
+# --- Manual trigger ---
+if manual_trigger:
+    mark_user_action()
+    should_run = True
+
+# --- Auto monitoring trigger ---
+elif auto_mode:
+    now = time.time()
+    if now - st.session_state.last_auto_run >= AUTO_REFRESH_INTERVAL:
+        should_run = True
+        st.session_state.last_auto_run = now
+
+# --- Run model BEFORE UI metrics render ---
+if should_run:
+    with st.spinner("Analyzing real-time sensor and context data..."):
+        input_data_raw, input_data, new_score = run_risk_analysis(selected_asset)
+
+# ============================================================
 st.markdown("---")
 
-## Asset Location & Lineman Presence
-st.subheader("Asset Location & Lineman Presence")
 
-# Get the coordinates for the selected asset
-asset_coords = ASSET_COORDINATES[selected_asset]
 
-# Create a DataFrame for the map
-map_data = pd.DataFrame([asset_coords])
-map_data.rename(columns={'lat': 'latitude', 'lon': 'longitude'}, inplace=True)
-
-# Add the map to the UI
-st.map(map_data, zoom=12)
-
-if state['linemen_on_site'] > 0:
-    st.info(f"📍 {state['linemen_on_site']} Linemen are detected at this location.")
-else:
-    st.warning("No linemen currently registered at this asset location.")
-
-st.markdown("---")
 
 ## Status and Risk Metrics
 col1, col2 = st.columns(2)
@@ -325,6 +348,14 @@ with col1:
 
 with col2:
     risk_label, advice = classify_risk(state['risk_score'])
+    # --- Consecutive HIGH detection (noise filter) ---
+    if risk_label == "HIGH":
+        st.session_state.high_streak += 1
+    else:
+        st.session_state.high_streak = 0
+
+    AUTO_LOCK = st.session_state.high_streak >= 3
+    
     def risk_color(label):
         return {"HIGH":"red", "MODERATE":"orange", "LOW":"green"}[label]
     st.markdown(
@@ -345,39 +376,22 @@ with col2:
 
 st.markdown("---")
 
+
+
 ## Control Panel & LOTO Actions
 st.subheader("LOTO Protocol and Control")
 
 
-# 1. Predict Risk Button (Triggers dynamic sensor data simulation)
-
-manual_trigger = st.button("Run Predictive Risk Analysis")
-
-should_run = False
-
-# --- Manual run ---
-if manual_trigger:
-    mark_user_action()
-    should_run = True
-
-# --- Auto-timed run ---
-elif auto_mode:
-    now = time.time()
-    if now - st.session_state.last_auto_run >= AUTO_REFRESH_INTERVAL:
-        should_run = True
-        st.session_state.last_auto_run = now
-
-
-# --- EXECUTE MODEL ONLY WHEN NEEDED ---
-if should_run:
-    with st.spinner("Analyzing real-time sensor and context data..."):
-        input_data_raw, input_data, new_score = run_risk_analysis(selected_asset)
-
+# ===== STABLE RESULT DISPLAY =====
+with risk_info_container:
+    if new_score is not None:
         st.success(f"Risk re-calculated. Score: {new_score:.2f}")
-        st.line_chart(st.session_state.risk_history[selected_asset])
+    else:
+        st.empty()
 
-        # SHAP
-        st.markdown("### 🔍 Why is this risk level assigned?")
+with shap_container:
+    st.markdown("### 🔍 Why is this risk level assigned?")
+    if new_score is not None:
         try:
             df_input = pd.DataFrame([input_data])
             df_input = df_input.reindex(columns=feature_names, fill_value=0)
@@ -394,14 +408,29 @@ if should_run:
                 direction = "increasing" if row["Impact"] > 0 else "reducing"
                 st.write(f"- **{clean_name}** is strongly **{direction}** risk")
 
-        except Exception as e:
-            st.warning("SHAP explanation unavailable for this prediction.")
-            log_event(selected_asset, f"SHAP Failure: {str(e)}", "System")
+        except Exception:
+            st.warning("SHAP explanation unavailable.")
+    else:
+        st.caption("Run analysis to see explanation.")
 
+with sensor_container:
     with st.expander("Show Latest Sensor Inputs"):
-        st.json(input_data_raw)
+        if new_score is not None:
+            st.json(input_data_raw)
+        else:
+            st.caption("No sensor snapshot yet.")
+            
+            
    
-        
+
+# 📈 Always show risk history if it exists
+if "risk_history" in st.session_state and selected_asset in st.session_state.risk_history:
+    st.markdown("### 📈 Risk Trend")
+    history = st.session_state.risk_history[selected_asset][-30:]
+    st.line_chart(history)
+    
+    
+    
 
 # 2. Control Room Action: Isolation
 if st.button("Control Room: Request ISOLATION", disabled=not can_transition(selected_asset, "ISOLATED")):
@@ -451,22 +480,44 @@ with col_lineman_out:
 # 4. Final Control Room Action: Re-Energize
 st.markdown("---")
 RISK_LOCK_THRESHOLD = 0.7
-if state['risk_score'] > RISK_LOCK_THRESHOLD and state['status'] != "LIVE":
-    st.error("🚨 Auto-lock: Risk too high to re-energize")
+if AUTO_LOCK and state['status'] != "LIVE":
+    st.error(f"🚨 Auto-lock: Sustained HIGH risk ({st.session_state.high_streak} cycles)")
 if st.button(
     "Control Room: Attempt RE-ENERGIZE",
     type="primary",
     disabled=(
-    not can_transition(selected_asset, "LIVE")
-    or state['risk_score'] > RISK_LOCK_THRESHOLD
-)
+        not can_transition(selected_asset, "LIVE")
+        or AUTO_LOCK
+    )
 ):
     mark_user_action()
     attempt_energize(selected_asset) # attempt_energize now uses st.rerun()
+    
+st.markdown("---")
 
 
+## Asset Location & Lineman Presence
+st.subheader("Asset Location & Lineman Presence")
+
+# Get the coordinates for the selected asset
+asset_coords = ASSET_COORDINATES[selected_asset]
+
+# Create a DataFrame for the map
+map_data = pd.DataFrame([asset_coords])
+map_data.rename(columns={'lat': 'latitude', 'lon': 'longitude'}, inplace=True)
+
+# Add the map to the UI
+st.map(map_data, zoom=12)
+
+if state['linemen_on_site'] > 0:
+    st.info(f"📍 {state['linemen_on_site']} Linemen are detected at this location.")
+else:
+    st.warning("No linemen currently registered at this asset location.")
 
 st.markdown("---")
+
+
+
 st.subheader("📜 System Audit Trail")
 try:
     log_file = os.path.join(BASE_DIR, 'data', 'processed', 'audit_trail.csv')
