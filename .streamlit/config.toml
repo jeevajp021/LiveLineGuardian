@@ -1,0 +1,9 @@
+[server]
+headless = true
+enableCORS = false
+
+[runner]
+magicEnabled = false
+
+[global]
+pythonVersion = "3.11"
