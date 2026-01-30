@@ -1,0 +1,81 @@
+timestamp,asset_id,action,user,status
+2026-01-28 22:04:37,A118,Isolation Requested,ControlRoom,ISOLATED
+2026-01-28 22:04:55,A118,Lineman Check-In,Lineman_App,MAINTENANCE (LOCKED)
+2026-01-28 22:05:00,A118,Lineman Check-Out,Lineman_App,MAINTENANCE (LOCKED)
+2026-01-28 22:05:03,A118,Lineman Check-In,Lineman_App,MAINTENANCE (LOCKED)
+2026-01-28 22:05:14,A118,Lineman Check-Out,Lineman_App,MAINTENANCE (LOCKED)
+2026-01-28 22:05:18,A118,Line Re-Energized,ControlRoom,LIVE
+2026-01-28 22:07:39,A118,Risk Score Calculated: 0.22,AI_Model,LIVE
+2026-01-29 21:32:14,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-29 21:32:52,A118,Isolation Requested,ControlRoom,ISOLATED
+2026-01-29 21:32:59,A118,Lineman Check-In,Lineman_App,MAINTENANCE (LOCKED)
+2026-01-29 21:33:05,A118,Lineman Check-Out,Lineman_App,MAINTENANCE (LOCKED)
+2026-01-29 21:33:07,A118,Lineman Check-In,Lineman_App,MAINTENANCE (LOCKED)
+2026-01-29 21:33:09,A118,Lineman Check-Out,Lineman_App,MAINTENANCE (LOCKED)
+2026-01-29 21:33:10,A118,Line Re-Energized,ControlRoom,LIVE
+2026-01-29 21:33:16,A118,Isolation Requested,ControlRoom,ISOLATED
+2026-01-29 21:33:19,A118,Line Re-Energized,ControlRoom,LIVE
+2026-01-29 21:33:55,A155,Risk Score Calculated: 0.05,AI_Model,LIVE
+2026-01-29 21:34:12,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-29 21:35:49,A118,Isolation Requested,ControlRoom,ISOLATED
+2026-01-29 21:35:52,A118,Line Re-Energized,ControlRoom,LIVE
+2026-01-29 21:35:54,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-29 21:35:59,A118,Isolation Requested,ControlRoom,ISOLATED
+2026-01-29 21:36:13,A118,Risk Score Calculated: 0.28,AI_Model,ISOLATED
+2026-01-29 21:36:16,A118,Risk Score Calculated: 0.28,AI_Model,ISOLATED
+2026-01-29 21:36:17,A118,Risk Score Calculated: 0.28,AI_Model,ISOLATED
+2026-01-29 21:36:19,A118,Risk Score Calculated: 0.28,AI_Model,ISOLATED
+2026-01-29 21:36:20,A118,Risk Score Calculated: 0.28,AI_Model,ISOLATED
+2026-01-29 21:36:37,A118,Lineman Check-In,Lineman_App,MAINTENANCE (LOCKED)
+2026-01-29 21:36:41,A118,Lineman Check-Out,Lineman_App,MAINTENANCE (LOCKED)
+2026-01-30 09:31:42,A118,Risk Score Calculated: 0.17,AI_Model,LIVE
+2026-01-30 09:31:45,A118,Risk Score Calculated: 0.22,AI_Model,LIVE
+2026-01-30 09:31:46,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:46,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:47,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:47,A118,Risk Score Calculated: 0.13,AI_Model,LIVE
+2026-01-30 09:31:47,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:47,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:47,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:48,A118,Risk Score Calculated: 0.16,AI_Model,LIVE
+2026-01-30 09:31:48,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:48,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:48,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:48,A118,Risk Score Calculated: 0.22,AI_Model,LIVE
+2026-01-30 09:31:49,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:49,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:49,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:49,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:49,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:50,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:50,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:50,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:50,A118,Risk Score Calculated: 0.22,AI_Model,LIVE
+2026-01-30 09:31:50,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:31:51,A118,Risk Score Calculated: 0.16,AI_Model,LIVE
+2026-01-30 09:31:59,A118,Isolation Requested,ControlRoom,ISOLATED
+2026-01-30 09:32:02,A118,Line Re-Energized,ControlRoom,LIVE
+2026-01-30 09:32:03,A118,Isolation Requested,ControlRoom,ISOLATED
+2026-01-30 09:32:04,A118,Lineman Check-In,Lineman_App,MAINTENANCE (LOCKED)
+2026-01-30 09:32:05,A118,Lineman Check-Out,Lineman_App,MAINTENANCE (LOCKED)
+2026-01-30 09:32:06,A118,Line Re-Energized,ControlRoom,LIVE
+2026-01-30 09:37:35,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:37:38,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:37:39,A118,Risk Score Calculated: 0.16,AI_Model,LIVE
+2026-01-30 09:37:39,A118,Risk Score Calculated: 0.16,AI_Model,LIVE
+2026-01-30 09:37:39,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:37:39,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:37:39,A118,Risk Score Calculated: 0.16,AI_Model,LIVE
+2026-01-30 09:37:40,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:37:40,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:37:40,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:37:40,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:37:41,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:37:41,A118,Risk Score Calculated: 0.28,AI_Model,LIVE
+2026-01-30 09:37:41,A118,Risk Score Calculated: 0.22,AI_Model,LIVE
+2026-01-30 09:37:43,A118,Isolation Requested,ControlRoom,ISOLATED
+2026-01-30 09:37:47,A118,Lineman Check-In,Lineman_App,MAINTENANCE (LOCKED)
+2026-01-30 09:37:49,A118,Lineman Check-Out,Lineman_App,MAINTENANCE (LOCKED)
+2026-01-30 09:37:51,A118,Lineman Check-In,Lineman_App,MAINTENANCE (LOCKED)
+2026-01-30 09:37:54,A118,Isolation Requested,ControlRoom,ISOLATED
+2026-01-30 09:37:55,A118,Line Re-Energized,ControlRoom,LIVE
