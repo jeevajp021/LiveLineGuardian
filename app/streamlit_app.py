@@ -1,5 +1,7 @@
 import shap
 import streamlit as st
+import xgboost as xgb
+import time
 import sys
 import os
 import random
@@ -11,10 +13,12 @@ import sys
 
 ROOT_DIR = pathlib.Path(__file__).resolve().parents[1]  # only go up ONE level
 sys.path.append(str(ROOT_DIR))
-
+BASE_DIR = ROOT_DIR
 MODEL_PATH = ROOT_DIR / "artifacts" / "riskanalysis_model.pkl"
 
 from src.models.predict import load_model_and_features, get_risk_score, classify_risk  
+
+
 
 # --- 0. NAVIGATION ---
 st.sidebar.title("Navigation")
@@ -47,7 +51,7 @@ if page == "Model Performance Metrics":
     st.write("These factors have the strongest influence on accident risk predictions across the network (SHAP explainability).")
 
     if os.path.exists('artifacts/plots/global_risk_factors.png'):
-        st.image('artifacts/plots/global_risk_factors.png', width="stretch")
+        st.image('artifacts/plots/global_risk_factors.png', use_container_width=True)
     else:
         st.warning("Global risk plot not found. Run: `python3 notebooks/explain_model.py` to generate it.")
 
@@ -120,6 +124,15 @@ def can_transition(asset_id, new_state):
 
 
 # --- 3. CORE LOGIC FUNCTIONS ---
+
+if 'last_auto_run' not in st.session_state:
+    st.session_state.last_auto_run = 0
+
+if 'last_action_time' not in st.session_state:
+    st.session_state.last_action_time = time.time()
+
+def mark_user_action():
+    st.session_state.last_action_time = time.time()
 
 def generate_dynamic_sensor_data(asset_id):
     """Generates slightly randomized sensor and context data. A118 is set to be high risk."""
@@ -197,22 +210,54 @@ def attempt_energize(asset_id):
     st.success(f"⚡ Line {asset_id} is successfully **LIVE**.")
     st.rerun() # FIX: Use st.rerun()
 
+def run_risk_analysis(selected_asset):
+    input_data_raw = generate_dynamic_sensor_data(selected_asset)
 
+    input_data = {}
+    for col in feature_names:
+        if col in input_data_raw:
+            input_data[col] = input_data_raw[col]
+        elif col.startswith(('job_type_', 'shift_type_')):
+            input_data[col] = 0
+        else:
+            input_data[col] = 0
+
+    new_score = get_risk_score(model, feature_names, input_data)
+    st.session_state.loto_state[selected_asset]['risk_score'] = new_score
+    log_event(selected_asset, f"Risk Score Calculated: {new_score:.2f}", "AI_Model")
+
+    if 'risk_history' not in st.session_state:
+        st.session_state.risk_history = {}
+    if selected_asset not in st.session_state.risk_history:
+        st.session_state.risk_history[selected_asset] = []
+
+    st.session_state.risk_history[selected_asset].append(new_score)
+
+    return input_data_raw, input_data, new_score
+    
+    
 
 
 
 # --- 4. MODEL LOADING ---
 
 st.sidebar.title("System Status")
+AUTO_REFRESH_INTERVAL = 5  # seconds
+IDLE_GRACE_PERIOD = 3  # seconds after user action before refresh allowed
+auto_mode = st.sidebar.toggle("🔄 Live Risk Monitoring", value=False)
 
 @st.cache_resource
-def load_system():
-    model, feature_names = load_model_and_features(MODEL_PATH)
-    explainer = shap.Explainer(model)
+def load_system(model_path, mtime):
+    model, feature_names = load_model_and_features(model_path)
+    if isinstance(model, xgb.Booster):
+        explainer = shap.TreeExplainer(model)
+    else:
+        explainer = shap.TreeExplainer(model.get_booster())
     return model, feature_names, explainer
 
 try:
-    model, feature_names, explainer = load_system()
+    model_mtime = os.path.getmtime(MODEL_PATH)
+    model, feature_names, explainer = load_system(MODEL_PATH, model_mtime)
     st.sidebar.success("ML Model Loaded Successfully!")
 except FileNotFoundError:
     st.sidebar.error("Model file not found. Run training first.")
@@ -220,7 +265,6 @@ except FileNotFoundError:
 except Exception as e:
     st.sidebar.error(f"Model loading failed: {e}")
     st.stop()
-
 
 
 
@@ -304,39 +348,39 @@ st.markdown("---")
 ## Control Panel & LOTO Actions
 st.subheader("LOTO Protocol and Control")
 
+
 # 1. Predict Risk Button (Triggers dynamic sensor data simulation)
-if st.button("Run Predictive Risk Analysis"):
+
+manual_trigger = st.button("Run Predictive Risk Analysis")
+
+should_run = False
+
+# --- Manual run ---
+if manual_trigger:
+    mark_user_action()
+    should_run = True
+
+# --- Auto-timed run ---
+elif auto_mode:
+    now = time.time()
+    if now - st.session_state.last_auto_run >= AUTO_REFRESH_INTERVAL:
+        should_run = True
+        st.session_state.last_auto_run = now
+
+
+# --- EXECUTE MODEL ONLY WHEN NEEDED ---
+if should_run:
     with st.spinner("Analyzing real-time sensor and context data..."):
-        # 1. Generate dynamic sensor data
-        input_data_raw = generate_dynamic_sensor_data(selected_asset)
-        
-        # 2. Prepare the input data structure for the ML model (matching feature_names)
-        input_data = {}
-        for col in feature_names:
-            if col in input_data_raw:
-                input_data[col] = input_data_raw[col]
-            # Set all required dummy variables to 0 if not explicitly defined in the raw data
-            elif col.startswith(('job_type_', 'shift_type_')):
-                input_data[col] = 0 
-            else:
-                # For any other missing numerical feature, set to 0
-                input_data[col] = 0
+        input_data_raw, input_data, new_score = run_risk_analysis(selected_asset)
 
-        new_score = get_risk_score(model, feature_names, input_data)
-        st.session_state.loto_state[selected_asset]['risk_score'] = new_score
         st.success(f"Risk re-calculated. Score: {new_score:.2f}")
-        log_event(selected_asset, f"Risk Score Calculated: {new_score:.2f}", "AI_Model")
-        if 'risk_history' not in st.session_state:
-            st.session_state.risk_history = []
-        st.session_state.risk_history.append(new_score)
-        st.line_chart(st.session_state.risk_history)
+        st.line_chart(st.session_state.risk_history[selected_asset])
 
-        
-        # --- SHAP EXPLANATION LOGIC ---
+        # SHAP
         st.markdown("### 🔍 Why is this risk level assigned?")
-
         try:
-            df_input = pd.DataFrame([input_data])[feature_names]
+            df_input = pd.DataFrame([input_data])
+            df_input = df_input.reindex(columns=feature_names, fill_value=0)
             shap_values = explainer(df_input)
 
             impact_df = pd.DataFrame({
@@ -345,27 +389,23 @@ if st.button("Run Predictive Risk Analysis"):
             }).assign(abs_impact=lambda x: x["Impact"].abs()) \
               .sort_values(by="abs_impact", ascending=False)
 
-
-            top_reasons = impact_df.head(3)
-
-            for _, row in top_reasons.iterrows():
+            for _, row in impact_df.head(3).iterrows():
                 clean_name = row["Feature"].replace("_", " ").title()
-                st.write(f"- **{clean_name}** is strongly increasing risk")
+                direction = "increasing" if row["Impact"] > 0 else "reducing"
+                st.write(f"- **{clean_name}** is strongly **{direction}** risk")
 
         except Exception as e:
             st.warning("SHAP explanation unavailable for this prediction.")
-            st.text(str(e))
-
+            log_event(selected_asset, f"SHAP Failure: {str(e)}", "System")
 
     with st.expander("Show Latest Sensor Inputs"):
-        st.json(input_data_raw) 
-
+        st.json(input_data_raw)
+   
+        
 
 # 2. Control Room Action: Isolation
-if st.button(
-    "Control Room: Request ISOLATION",
-    disabled=not can_transition(selected_asset, "ISOLATED")
-):
+if st.button("Control Room: Request ISOLATION", disabled=not can_transition(selected_asset, "ISOLATED")):
+    mark_user_action()
     transition_state(selected_asset, "ISOLATED")
     log_event(selected_asset, "Isolation Requested")
     st.success(f"Line {selected_asset} is now **ISOLATED**.")
@@ -377,8 +417,9 @@ if st.button(
 col_lineman_in, col_lineman_out = st.columns(2)
 
 with col_lineman_in:
-    if st.button("Lineman CHECK-IN (Via App)",width="stretch",
-        disabled=not can_transition(selected_asset, "MAINTENANCE (LOCKED)")):
+    if st.button("Lineman CHECK-IN (Via App)", use_container_width=True,
+    disabled=not can_transition(selected_asset, "MAINTENANCE (LOCKED)")):
+            mark_user_action()
             st.session_state.loto_state[selected_asset]['linemen_on_site'] += 1
             transition_state(selected_asset, "MAINTENANCE (LOCKED)")
             log_event(selected_asset, "Lineman Check-In", "Lineman_App")
@@ -389,10 +430,12 @@ with col_lineman_in:
 with col_lineman_out:
     if st.button(
         "Lineman CHECK-OUT (Via App)",
-        width="stretch",
+        use_container_width=True,
         disabled=(state['linemen_on_site'] == 0)
     ):
-        st.session_state.loto_state[selected_asset]['linemen_on_site'] -= 1
+        mark_user_action()
+        state_obj = st.session_state.loto_state[selected_asset]
+        state_obj['linemen_on_site'] = max(0, state_obj['linemen_on_site'] - 1)     
         log_event(selected_asset, "Lineman Check-Out", "Lineman_App")
 
         if st.session_state.loto_state[selected_asset]['linemen_on_site'] == 0:
@@ -401,16 +444,24 @@ with col_lineman_out:
                 st.rerun()
 
         else:
-            st.info(f"Lineman Checked Out. {state['linemen_on_site']} remaining.")
+            current_count = st.session_state.loto_state[selected_asset]['linemen_on_site']
+            st.info(f"Lineman Checked Out. {current_count} remaining.")
 
 
 # 4. Final Control Room Action: Re-Energize
 st.markdown("---")
+RISK_LOCK_THRESHOLD = 0.7
+if state['risk_score'] > RISK_LOCK_THRESHOLD and state['status'] != "LIVE":
+    st.error("🚨 Auto-lock: Risk too high to re-energize")
 if st.button(
     "Control Room: Attempt RE-ENERGIZE",
     type="primary",
-    disabled=not can_transition(selected_asset, "LIVE")
+    disabled=(
+    not can_transition(selected_asset, "LIVE")
+    or state['risk_score'] > RISK_LOCK_THRESHOLD
+)
 ):
+    mark_user_action()
     attempt_energize(selected_asset) # attempt_energize now uses st.rerun()
 
 
@@ -421,8 +472,21 @@ try:
     log_file = os.path.join(BASE_DIR, 'data', 'processed', 'audit_trail.csv')
     if os.path.exists(log_file):
         audit_df = pd.read_csv(log_file)
-        st.dataframe(audit_df.tail(10), width="stretch") # Show last 10 actions
+        st.dataframe(audit_df.tail(10), use_container_width=True) # Show last 10 actions
     else:
         st.info("No logs recorded yet.")
 except Exception as e:
     st.error(f"Could not load audit logs: {e}")
+    
+    
+    
+    
+# --- AUTO REFRESH LOOP ---
+
+if auto_mode:
+    st.caption(f"⏱ Auto-refreshing every {AUTO_REFRESH_INTERVAL}s")
+
+    time_since_action = time.time() - st.session_state.last_action_time
+
+    if time_since_action > IDLE_GRACE_PERIOD:
+        st.rerun()
